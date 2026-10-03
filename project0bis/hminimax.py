@@ -9,6 +9,7 @@ class PacmanAgent(Agent):
     def __init__(self):
         super().__init__()
         self.depth = 7
+        self._history = {}
 
     def get_action(self, state):
         """Return the best legal action found within the search horizon."""
@@ -16,6 +17,10 @@ class PacmanAgent(Agent):
         if not successors:
             return Directions.STOP
 
+        state_signature = self._progress_signature(state)
+        self._history[state_signature] = self._history.get(
+            state_signature, 0
+        ) + 1
         depth = self._max_depth(state)
 
         cache = {}
@@ -27,6 +32,10 @@ class PacmanAgent(Agent):
                 cache,
                 {self._signature(state)},
             )
+            visits = self._history.get(
+                self._progress_signature(successor), 0
+            )
+            value -= 100.0 * visits
             values.append((value, action))
 
         return max(values, key=lambda item: item[0])[1]
@@ -112,7 +121,7 @@ class PacmanAgent(Agent):
                 for x, y in food_positions
             )
             score -= 1.5 * food_distance
-            score -= 4.0 * len(food_positions)
+            score -= 8.0 * len(food_positions)
         return score
 
     @staticmethod
@@ -137,3 +146,15 @@ class PacmanAgent(Agent):
             food_positions,
             tuple(state.getCapsules()),
         )
+
+    @staticmethod
+    def _progress_signature(state):
+        """Track route progress without depending on ghost movement."""
+        food = state.getFood()
+        food_positions = tuple(
+            (x, y)
+            for x in range(food.width)
+            for y in range(food.height)
+            if food[x][y]
+        )
+        return state.getPacmanPosition(), food_positions
