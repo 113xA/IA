@@ -16,9 +16,7 @@ class PacmanAgent(Agent):
         if not successors:
             return Directions.STOP
 
-        depth = self.depth
-        if state.getNumFood() > 5:
-            depth = 6
+        depth = self._max_depth(state)
 
         cache = {}
         values = []
@@ -32,6 +30,13 @@ class PacmanAgent(Agent):
             values.append((value, action))
 
         return max(values, key=lambda item: item[0])[1]
+
+    def _max_depth(self, state):
+        """Choose a search horizon from the current board complexity."""
+        food_depth = 7 if state.getNumFood() <= 5 else 6
+        board_width = state.getWalls().width
+        board_depth = max(5, 8 - (board_width // 12))
+        return min(self.depth, food_depth, board_depth)
 
     def _max_value(self, state, depth, cache, path):
         if state.isWin() or state.isLose() or depth <= 0:
