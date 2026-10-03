@@ -86,9 +86,9 @@ class PacmanAgent(Agent):
 
         fringe: deque[tuple[SearchState, list[str]]] = deque()
         fringe.append((state, []))
-        closed: set[
+        visited: set[
             tuple[Position, tuple[Position, ...], tuple[Position, ...]]
-        ] = set()
+        ] = {state_key(state)}
 
         while fringe:
             current, path = fringe.popleft()
@@ -96,12 +96,11 @@ class PacmanAgent(Agent):
             if current.isWin():
                 return path
 
-            current_key = state_key(current)
-            if current_key in closed:
-                continue
-            closed.add(current_key)
-
             for successor, action in current.generatePacmanSuccessors():
+                successor_key = state_key(successor)
+                if successor_key in visited:
+                    continue
+                visited.add(successor_key)
                 fringe.append((successor, path + [action]))
 
         return []

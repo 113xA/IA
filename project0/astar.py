@@ -54,6 +54,8 @@ SearchEntry: TypeAlias = tuple[
     int,
 ]
 
+CAPSULE_PENALTY = 5
+
 
 def state_key(
     state: SearchState,
@@ -74,10 +76,11 @@ def manhattan_distance(first: Position, second: Position) -> int:
 
 
 def heuristic(state: SearchState) -> int:
-    """Return an admissible lower bound on moves needed to eat all food.
+    """Return an admissible lower bound on the cost of eating all food.
 
     The bound combines the Manhattan distance from Pacman to the closest
     remaining food with a Manhattan minimum spanning tree over the food.
+    Capsule penalties are deliberately omitted because they are non-negative.
     """
 
     food = state.getFood().asList()
@@ -153,7 +156,13 @@ class PacmanAgent(Agent):
 
             for successor, action in current.generatePacmanSuccessors():
                 successor_key = state_key(successor)
-                successor_cost = cost + 1
+                capsule_was_eaten = len(successor.getCapsules()) < len(
+                    current.getCapsules()
+                )
+                step_cost = 1 + (
+                    CAPSULE_PENALTY if capsule_was_eaten else 0
+                )
+                successor_cost = cost + step_cost
                 if successor_cost >= best_cost.get(
                     successor_key, float('inf')
                 ):
