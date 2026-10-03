@@ -1,8 +1,63 @@
+from __future__ import annotations
+
+import heapq
+from itertools import count
+from typing import Protocol, TypeAlias
+
 from pacman_module.game import Agent, Directions
-from pacman_module.util import PriorityQueue, manhattanDistance
 
 
-def state_key(state):
+Position = tuple[int, int]
+
+
+class FoodGrid(Protocol):
+    """Subset of the food-grid API used by the search agent."""
+
+    def asList(self) -> list[Position]:
+        """Return the positions containing food."""
+        ...
+
+
+class SearchState(Protocol):
+    """Subset of the game-state API used by the search agent."""
+
+    def getPacmanPosition(self) -> Position:
+        """Return Pacman's current position."""
+        ...
+
+    def getFood(self) -> FoodGrid:
+        """Return the remaining food grid."""
+        ...
+
+    def getCapsules(self) -> list[Position]:
+        """Return the remaining capsule positions."""
+        ...
+
+    def getLegalActions(self) -> list[str]:
+        """Return Pacman's legal actions."""
+        ...
+
+    def generatePacmanSuccessors(self) -> list[tuple[SearchState, str]]:
+        """Return successor states and actions."""
+        ...
+
+    def isWin(self) -> bool:
+        """Return whether this state is a winning state."""
+        ...
+
+
+SearchEntry: TypeAlias = tuple[
+    int,
+    int,
+    SearchState,
+    list[str],
+    int,
+]
+
+
+def state_key(
+    state: SearchState,
+) -> tuple[Position, tuple[Position, ...], tuple[Position, ...]]:
     """Return the hashable search identity of a Pacman state."""
 
     return (
@@ -12,7 +67,13 @@ def state_key(state):
     )
 
 
-def heuristic(state):
+def manhattan_distance(first: Position, second: Position) -> int:
+    """Return the Manhattan distance between two grid positions."""
+
+    return abs(first[0] - second[0]) + abs(first[1] - second[1])
+
+
+def heuristic(state: SearchState) -> int:
     """Return an admissible lower bound on moves needed to eat all food.
 
     The bound combines the Manhattan distance from Pacman to the closest
@@ -24,7 +85,7 @@ def heuristic(state):
         return 0
 
     position = state.getPacmanPosition()
-    connection = min(manhattanDistance(position, dot) for dot in food)
+    connection = min(manhattan_distance(position, dot) for dot in food)
     tree_cost = 0
     remaining = set(food)
     tree = {remaining.pop()}
@@ -32,7 +93,7 @@ def heuristic(state):
     while remaining:
         distance, next_dot = min(
             (
-                manhattanDistance(tree_dot, dot),
+                manhattan_distance(tree_dot, dot),
                 dot,
             )
             for tree_dot in tree
@@ -50,9 +111,9 @@ class PacmanAgent(Agent):
 
     def __init__(self):
         super().__init__()
-        self.moves = None
+        self.moves: list[str] | None = None
 
-    def get_action(self, state):
+    def get_action(self, state: SearchState) -> str:  # type: ignore[override]
         """Return the next legal move on an optimal winning path."""
 
         if self.moves is None:
@@ -69,15 +130,20 @@ class PacmanAgent(Agent):
             return Directions.STOP
         return legal_actions[0] if legal_actions else Directions.STOP
 
-    def astar(self, state):
+    def astar(self, state: SearchState) -> list[str]:
         """Return a shortest sequence of moves that wins from ``state``."""
 
-        fringe = PriorityQueue()
-        fringe.push((state, [], 0), heuristic(state))
+        entries: list[SearchEntry] = []
+        sequence = count()
+        heapq.heappush(
+            entries,
+            (heuristic(state), next(sequence), state, [], 0),
+        )
         best_cost = {state_key(state): 0}
 
-        while not fringe.isEmpty():
-            _, (current, path, cost) = fringe.pop()
+        while entries:
+            priority, order, current, path, cost = heapq.heappop(entries)
+            del priority, order
             current_key = state_key(current)
             if cost != best_cost.get(current_key):
                 continue
@@ -95,9 +161,15 @@ class PacmanAgent(Agent):
 
                 best_cost[successor_key] = successor_cost
                 priority = successor_cost + heuristic(successor)
-                fringe.push(
-                    (successor, path + [action], successor_cost),
-                    priority,
+                heapq.heappush(
+                    entries,
+                    (
+                        priority,
+                        next(sequence),
+                        successor,
+                        path + [action],
+                        successor_cost,
+                    ),
                 )
 
         return []
