@@ -8,7 +8,7 @@ class PacmanAgent(Agent):
 
     def __init__(self):
         super().__init__()
-        self.depth = 6
+        self.depth = 7
 
     def get_action(self, state):
         """Return the best legal action found within the search horizon."""
@@ -16,12 +16,16 @@ class PacmanAgent(Agent):
         if not successors:
             return Directions.STOP
 
+        depth = self.depth
+        if state.getNumFood() > 5:
+            depth = 6
+
         cache = {}
         values = []
         for successor, action in successors:
             value = self._min_value(
                 successor,
-                self.depth - 1,
+                depth - 1,
                 cache,
                 {self._signature(state)},
             )
